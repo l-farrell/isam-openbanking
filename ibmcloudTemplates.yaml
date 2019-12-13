@@ -1,0 +1,343 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: isamconfig
+  labels:
+    app: isamconfig
+spec:
+  replicas: 1
+  template: 
+    metadata:
+      labels:
+        app: isamconfig
+    spec:
+      volumes:
+        - name: isamconfigvol
+          emptyDir: {}
+      containers:
+        - name: isamconfig
+          image: au.icr.io/isamob/isam:latest
+          imagePullPolicy: Always
+# This should be the default entry point
+          command: [ "/sbin/bootstrap.sh"]
+          ports:
+            - containerPort: 9443
+          volumeMounts:
+            - mountPath: /var/shared
+              name: isamconfigvol
+          securityContext:
+            capabilities:
+              add:
+                - SYS_PTRACE
+                - SYS_RESOURCE
+          env:
+            - name: SERVICE
+              value: config
+            - name: CONTAINER_TIMEZONE
+              value: Australia/Brisbane
+            - name: ADMIN_PWD
+              valueFrom:
+                secretKeyRef:
+                  name: adminpwd
+                  key: password
+---
+# for external service access, see https://console.bluemix.net/docs/containers/cs_apps.html#cs_apps_public_nodeport
+apiVersion: v1
+kind: Service
+metadata:
+  name: isamconfig
+spec:
+  ports:
+    - port: 9443
+      name: isamconfig
+      protocol: TCP
+# make this one statically allocated
+      nodePort: 30442
+  selector:
+    app: isamconfig
+  type: NodePort
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: isamruntime
+  labels:
+    app: isamruntime
+spec:
+  replicas: 1
+  template: 
+    metadata:
+      labels:
+        app: isamruntime
+    spec:
+      volumes:
+        - name: isamconfigvol
+          emptyDir: {}
+      containers:
+        - name: isamruntime
+          image: au.icr.io/isamob/isam:latest
+          imagePullPolicy: Always
+# This should be the default entry point
+          command: [ "/sbin/bootstrap.sh"]
+          ports:
+            - containerPort: 443
+          volumeMounts:
+            - mountPath: /var/shared
+              name: isamconfigvol
+          securityContext:
+            capabilities:
+              add:
+                - SYS_PTRACE
+                - SYS_RESOURCE
+          env:
+            - name: SERVICE
+              value: runtime
+            - name: CONTAINER_TIMEZONE
+              value: Australia/Brisbane
+            - name: CONFIG_SERVICE_URL
+              value: https://isamconfig:9443/shared_volume
+            - name: CONFIG_SERVICE_USER_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: configreader
+                  key: username
+            - name: CONFIG_SERVICE_USER_PWD
+              valueFrom:
+                secretKeyRef:
+                  name: configreader
+                  key: password
+            - name: ADMIN_PWD
+              valueFrom:
+                secretKeyRef:
+                  name: adminpwd
+                  key: password
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: isamruntime
+spec:
+  ports:
+    - port: 443
+      name: isamruntime
+      protocol: TCP
+      nodePort: 30445
+  selector:
+    app: isamruntime
+  type: NodePort
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: isamwebseal
+  labels:
+    app: isamwebseal
+spec:
+  replicas: 1
+  template: 
+    metadata:
+      labels:
+        app: isamwebseal
+    spec:
+      volumes:
+        - name: isamconfigvol
+          emptyDir: {}
+      containers:
+        - name: isamwebseal
+          image: au.icr.io/isamob/isam:latest
+          imagePullPolicy: Always
+# This should be the default entry point
+          command: [ "/sbin/bootstrap.sh"]
+          ports:
+            - containerPort: 443
+          volumeMounts:
+            - mountPath: /var/shared
+              name: isamconfigvol
+          securityContext:
+            capabilities:
+              add:
+                - SYS_PTRACE
+                - SYS_RESOURCE
+          env:
+            - name: SERVICE
+              value: webseal
+            - name: INSTANCE
+              value: default
+            - name: CONTAINER_TIMEZONE
+              value: Australia/Brisbane
+            - name: CONFIG_SERVICE_URL
+              value: https://isamconfig:9443/shared_volume
+            - name: CONFIG_SERVICE_USER_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: configreader
+                  key: username
+            - name: CONFIG_SERVICE_USER_PWD
+              valueFrom:
+                secretKeyRef:
+                  name: configreader
+                  key: password
+            - name: ADMIN_PWD
+              valueFrom:
+                secretKeyRef:
+                  name: adminpwd
+                  key: password
+---
+# for external service access, see https://console.bluemix.net/docs/containers/cs_apps.html#cs_apps_public_nodeport
+apiVersion: v1
+kind: Service
+metadata:
+  name: isamwebseal
+spec:
+  ports:
+    - port: 443
+      name: isamwebseal
+      protocol: TCP
+      nodePort: 30443
+  selector:
+    app: isamwebseal
+  type: NodePort
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: openldap
+  labels:
+    app: openldap
+spec:
+  replicas: 1
+  template: 
+    metadata:
+      labels:
+        app: openldap
+    spec:
+      volumes:
+        - name: ldaplib
+          emptyDir: {}
+        - name: ldapslapd
+          emptyDir: {}
+        - name: ldapsecauthority
+          emptyDir: {}
+        - name: keys
+          secret:
+            secretName: openldap-keys
+      containers:
+        - name: openldap
+          image: au.icr.io/isamob/isam-openldap:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 636
+          env:
+            - name: LDAP_DOMAIN
+              value: ibm.com
+            - name: LDAP_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: genericpwd
+                  key: password
+            - name: LDAP_CONFIG_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: genericpwd
+                  key: password
+          volumeMounts:
+            - mountPath: /var/lib/ldap
+              name: ldaplib
+            - mountPath: /etc/ldap/slapd.d
+              name: ldapslapd
+            - mountPath: /var/lib/ldap.secAuthority
+              name: ldapsecauthority
+            - mountPath: /container/service/slapd/assets/certs
+              name: keys
+# workaround to fix file permissions when using persistent volume in Kubernetes
+          command: [ "/bin/bash"]
+          args: [ "-c", "chown -R openldap:openldap /var/lib/ldap.secAuthority; /container/tool/run --copy-service" ]
+# useful for debugging startup issues - can run bash, then exec to the container and poke around
+#          command: [ "/bin/bash"]
+#          args: [ "-c", "while /bin/true ; do sleep 5; done" ]
+# Just this line to get debug output from openldap startup
+#          args: [ "--loglevel" , "trace","--copy-service"]
+# This line is needed when running on Kubernetes 1.9.4 or above
+#          args: [ "--copy-service"]
+---
+# for external service access, see https://console.bluemix.net/docs/containers/cs_apps.html#cs_apps_public_nodeport
+apiVersion: v1
+kind: Service
+metadata:
+  name: openldap
+  labels:
+    app: openldap
+spec:
+  ports:
+    - port: 636
+      name: ldaps
+      protocol: TCP
+# if we want internet-facing, make this one statically allocated and change type to NodePort
+      nodePort: 30636
+  selector:
+    app: openldap
+  type: NodePort
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: postgresql
+  labels:
+    app: postgresql
+spec:
+  replicas: 1
+  template: 
+    metadata:
+      labels:
+        app: postgresql
+    spec:
+      volumes:
+        - name: postgresqldata
+          emptyDir: {}
+        - name: keys
+          secret:
+            secretName: postgresql-keys
+      containers:
+        - name: postgresql
+          image: au.icr.io/isamob/isam-postgresql:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              value: postgres
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: genericpwd
+                  key: password
+            - name: POSTGRES_DB
+              value: isam
+            - name: POSTGRES_SSL_KEYDB
+              value: /var/local/db.key
+          volumeMounts:
+            - mountPath: /var/lib/postgresql/data
+              name: postgresqldata
+            - mountPath: /var/local/
+              name: keys
+# useful for debugging startup issues - can run bash, then exec to the container and poke around
+#          command: [ "/bin/bash"]
+#          args: [ "-c", "while /bin/true ; do sleep 5; done" ]
+---
+# for external service access, see https://console.bluemix.net/docs/containers/cs_apps.html#cs_apps_public_nodeport
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgresql
+  labels:
+      app: postresql
+spec:
+  ports:
+    - port: 5432
+      name: postgresql
+      protocol: TCP
+      nodePort: 31432
+  selector:
+    app: postgresql
+  type: NodePort
+
