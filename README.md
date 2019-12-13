@@ -1,4 +1,4 @@
-# isam-ob
+# isam-openbanking
 
 Kubenetes templates and automation scripts for deploying ISAM for OpenBanking. 
 
