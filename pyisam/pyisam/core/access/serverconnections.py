@@ -12,6 +12,7 @@ SERVER_CONNECTION_ROOT = "/mga/server_connections"
 SERVER_CONNECTION_LDAP = "/mga/server_connections/ldap"
 SERVER_CONNECTION_WEB_SERVICE = "/mga/server_connections/ws"
 SERVER_CONNECTION_SMTP = "/mga/server_connections/smtp"
+SERVER_CONNECTION_ISAM = "/mga/server_connections/isamruntime"
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +22,7 @@ class ServerConnections(object):
     def __init__(self, base_url, username, password):
         super(ServerConnections, self).__init__()
         self.client = RESTClient(base_url, username, password)
+
 
     def create_ldap(
             self, name=None, description=None, locked=None,
@@ -163,6 +165,56 @@ class ServerConnections(object):
 
     def list_all(self):
         endpoint = SERVER_CONNECTION_ROOT + "/v1"
+
+        response = self.client.get_json(endpoint)
+        response.success = response.status_code == 200
+
+        return response
+
+class ServerConnections9070(ServerConnections):
+
+    def __init__(self, base_url, username, password):
+        super(ServerConnections, self).__init__()
+        self.client = RESTClient(base_url, username, password)
+
+
+    def create_isam(
+            self, name=None, description=None, locked=None,
+            connection_bind_dn=None, connection_bind_pwd=None,
+            connection_ssl_truststore=None, connection_ssl_auth_key="",
+            connection_ssl=None):
+        connection_data = DataObject()
+        connection_data.add_value_string("bindDN", connection_bind_dn)
+        connection_data.add_value_string("bindPwd", connection_bind_pwd)
+        connection_data.add_value_string(
+            "sslTruststore", connection_ssl_truststore)
+        connection_data.add_value_string("sslAuthKey", connection_ssl_auth_key)
+        connection_data.add_value("ssl", connection_ssl)
+
+
+        data = DataObject()
+        data.add_value_string("name", name)
+        data.add_value_string("description", description)
+        data.add_value_string("type", "isamruntime")
+        data.add_value_not_empty("connection", connection_data.data)
+
+        endpoint = SERVER_CONNECTION_ISAM + "/v1"
+
+        response = self.client.post_json(endpoint, data.data)
+        response.success = response.status_code == 201
+
+        return response
+
+    def delete_isam(self, uuid):
+        endpoint = "%s/%s/v1" % (SERVER_CONNECTION_ISAM, uuid)
+
+        response = self.client.delete_json(endpoint)
+        response.success = response.status_code == 204
+
+        return response
+
+    def list_isam(self):
+        endpoint = SERVER_CONNECTION_ISAM + "/v1"
 
         response = self.client.get_json(endpoint)
         response.success = response.status_code == 200

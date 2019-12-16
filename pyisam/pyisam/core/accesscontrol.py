@@ -13,8 +13,8 @@ from .access.mmfaconfig import MMFAConfig, MMFAConfig9021
 from .access.pushnotification import PushNotification, PushNotification9021
 from .access.riskprofiles import RiskProfiles  
 from .access.runtimeparameters import RuntimeParameters
-from .access.scimconfig import SCIMConfig
-from .access.serverconnections import ServerConnections
+from .access.scimconfig import SCIMConfig, SCIMConfig9070
+from .access.serverconnections import ServerConnections, ServerConnections9070
 from .access.templatefiles import TemplateFiles
 from .access.userregistry import UserRegistry
 from .access.mappingrules import MappingRules
@@ -81,3 +81,5 @@ class AccessControl9070(AccessControl9060):
 
     def __init__(self, base_url, username, password):
               super(AccessControl9070, self).__init__(base_url, username, password)
+              self.server_connections = ServerConnections9070(base_url, username, password)
+              self.scim_config = SCIMConfig9070(base_url, username, password)
