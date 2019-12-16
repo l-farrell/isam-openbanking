@@ -1,7 +1,7 @@
 
 # Local Management Interface
-#management-url: "https://173.193.85.173:30442"
-management-url: "https://isam.local:20442"
+management-url: "https://173.193.85.173:30442"
+#management-url: "https://isam.local:20442"
 admin-username: "admin"
 admin-password: "admin"
 admin-password-old: "admin"
@@ -18,7 +18,7 @@ rt-cert-label: "runtime"
 
 junction-root-page: "./index.html"
 
-definition:  '{ "tcmBehavior": "NEVER_PROMPT", "enableMultipleRefreshTokensForFaultTolerance": true, "description": "An API protection definition configured for OpenBanking", "oidc": { "poc": "https://173.193.85.173:30443/isam", "iss": "https://isam-ob-k8s.com", "lifetime": 20, "cert": "runtime", "enc": { "enc": null, "alg": null, "enabled": false }, "alg": "RS256", "enabled": true, "db": "rt_profile_keys", "dynamicClients":true, "issueSecret":true }, "refreshTokenLength": 40, "grantTypes": [ "RESOURCE_OWNER_PASSWORD_CREDENTIALS", "JWT_BEARER", "IMPLICIT_GRANT", "CLIENT_CREDENTIALS", "AUTHORIZATION_CODE" ], "name": "OpenBanking", "issueRefreshToken":true }'
+definition:  '{"name": "OpenBanking", "tcmBehavior": "NEVER_PROMPT", "enableMultipleRefreshTokensForFaultTolerance": true, "description": "An API protection definition configured for OpenBanking", "oidc": { "poc": "https://173.193.85.173:30443/isam", "iss": "https://isam-ob-k8s.com", "lifetime": 20, "cert": "runtime", "enc": { "enc": null, "alg": null, "enabled": false }, "alg": "RS256", "enabled": true, "db": "rt_profile_keys", "dynamicClients":true, "issueSecret":true }, "refreshTokenLength": 40, "grantTypes": [ "RESOURCE_OWNER_PASSWORD_CREDENTIALS", "JWT_BEARER", "IMPLICIT_GRANT", "CLIENT_CREDENTIALS", "AUTHORIZATION_CODE" ],  "issueRefreshToken":true }'
 client: '{ "redirectUri": ["https://static.com", "https://staticclient.com/auth", "https://staticclient.com/auth", "https://localhost:19880/auth"] , "otherInfo": null, "clientId": "static_client", "companyName": "LMFwallet", "contactPerson": "lmf", "jwksUri": null, "contactType": "TECHNICAL", "encryptionCert": null, "companyUrl": "https://lmfwallet.com", "encryptionDb": null, "phone": null, "name": "A oauth client", "requirePkce": false, "definition": "1", "clientSecret": "hunter2", "id": "1", "email": "lfarrell@au1.ibm.com" }' 
 
 jwt-validate-chain-template: '[{"id":"default-jwt", "mode":"validate", "prefix": "0"},  {"id":"default-stsuu", "mode":"issue", "prefix": "1"}]'

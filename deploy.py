@@ -133,7 +133,6 @@ if __name__ == '__main__':
 
 
 
-
         response = ss.ssl_certificates.get_signer("rt_profile_keys", "isam-ldap")
         need_deploy = False
 
@@ -142,22 +141,6 @@ if __name__ == '__main__':
             need_deploy = True
         
             print("Loaded ldap certificate. (RT)")
-
-        response = ss.ssl_certificates.get_signer("pdsrv", "isam-ldap")
-        need_deploy = False
-
-        response = ss.ssl_certificates.get_signer("lmi_trust_store", "isam-ldap")
-        need_deploy = False
-
-        if response.success != True:
-            ok(ss.ssl_certificates.load_signer,"lmi_trust_store", server=isam_ldap_server, port=636,label="isam-ldap")
-            need_deploy = True
-        
-            print("Loaded ldap certificate. (LMI)")
-            if need_deploy:
-                ok(ss.configuration.deploy_pending_changes)
-                need_deploy = False
-                ok(ss.restartshutdown.restart_lmi)
 
         # load and trust the db and ldap
         # externalise the db
@@ -185,15 +168,15 @@ if __name__ == '__main__':
             need_deploy = False
 
 
-    response = ok(ss.runtime_db.get_db)
+        response = ok(ss.runtime_db.get_db)
 
-    if 'hvdb_address' not in response.json or response.json['hvdb_address'] != isam_db_server:
-        ok(ss.runtime_db.set_db, host=isam_db_server,port="5432",db_name="isam",secure=True,
-                user="postgres",passwd="Passw0rd",db_type="postgresql")
-        print("Configured external HVDB.")
-        ok(ss.configuration.deploy_pending_changes)
+        if 'hvdb_address' not in response.json or response.json['hvdb_address'] != isam_db_server:
+            ok(ss.runtime_db.set_db, host=isam_db_server,port="5432",db_name="isam",secure=True,
+                    user="postgres",passwd="Passw0rd",db_type="postgresql")
+            print("Configured external HVDB.")
+            ok(ss.configuration.deploy_pending_changes)
 
-        #now activate
+            #now activate
 
         response = ok(ss.licensing.get_activated_modules)
         ids = deflate_to_id(response.json)
@@ -391,10 +374,10 @@ if __name__ == '__main__':
             ok(web.reverse_proxy.update_configuration_stanza_entry, 'default', 'oauth', 'external-user-identity-attribute','username')
             ok(web.reverse_proxy.update_configuration_stanza_entry, 'default', 'oauth', 'user-identity-attribute','not-username')
 
-            print("Setting URL filtering for SCIM")
-            ok(web.reverse_proxy.add_configuration_stanza_entry, 'default', 'filter-content-types', 'type','application/scim+json')
-            ok(web.reverse_proxy.add_configuration_stanza_entry, 'default', 'script-filtering', 'rewrite-absolute-with-absolute','yes')
-            ok(web.reverse_proxy.update_configuration_stanza_entry, 'default', 'script-filtering', 'script-filter','yes')
+            #print("Setting URL filtering for SCIM")
+            #ok(web.reverse_proxy.add_configuration_stanza_entry, 'default', 'filter-content-types', 'type','application/scim+json')
+            #ok(web.reverse_proxy.add_configuration_stanza_entry, 'default', 'script-filtering', 'rewrite-absolute-with-absolute','yes')
+            #ok(web.reverse_proxy.update_configuration_stanza_entry, 'default', 'script-filtering', 'script-filter','yes')
 
 
         else:
@@ -529,18 +512,10 @@ if __name__ == '__main__':
 
         # Do our generic pdadmin workload here:
         #
-        # TODO: source these from a script?
-        #
-        # - create a user
-        # - create the /intent jct
-        # - protect /intent/account-requests appropriately
-        # - protect /intent appropriately
-        # - create the scim junction
-        #
         print("Creating testuser, testadmin, adminGroup....")
         pdadmin = ok(web.policy_administration.execute, 'sec_master', 'passw0rd', 
                     [
-                    "server task default-webseald-localhost create -t ssl -p 443 -h isam-runtime -B -U easuser -W passw0rd -c iv_user,iv_groups,iv_creds -f -x /scim",
+                    #"server task default-webseald-localhost create -t ssl -p 443 -h isam-runtime -B -U easuser -W passw0rd -c iv_user,iv_groups,iv_creds -f -x /scim",
                     "server task default-webseald-localhost create -t tcp -p 8081 -h ssahopper -b ignore -f /ssa",
                     "acl attach isam_oauth_unauth /WebSEAL/localhost-default/ssa",
                     "acl attach isam_oauth_nobody /WebSEAL/localhost-default/isam/sps/authsvc",
