@@ -568,13 +568,15 @@ if __name__ == '__main__':
                     "group create adminGroup cn=adminGroup,secAuthority=Default adminGroup",
                     "group modify adminGroup add testadmin",
                     #"server task default-webseald-localhost create -t ssl -p 443 -h isamruntime -B -U easuser -W passw0rd -c iv_user,iv_groups,iv_creds -f -x /scim",
+                    "server task default-webseald-localhost create -t ssl -p 443 -h isamruntime -b ignore -f -x /TrustServerWS",
                     "server task default-webseald-localhost create -t tcp -p 8081 -h ssahopper -b ignore -f /ssa",
                     "acl attach /WebSEAL/localhost-default/ssa isam_oauth_unauth",
                     "acl attach /WebSEAL/localhost-default/isam/sps/apiauthsvc isam_oauth_nobody",
                     "acl attach /WebSEAL/localhost-default/isam/sps/authsvc isam_oauth_nobody",
                     "acl attach /WebSEAL/localhost-default/isam/sps/authsvc/policy/password isam_oauth_unauth",
                     "acl attach /WebSEAL/localhost-default/isam/sps/authsvc/policy/fido2 isam_oauth_unauth",
-                    "acl attach /WebSEAL/localhost-default/isam/sps/authsvc/policy/ssa isam_oauth_unauth"
+                    "acl attach /WebSEAL/localhost-default/isam/sps/authsvc/policy/ssa isam_oauth_unauth",
+                    "acl attach /WebSEAL/localhost-default/TrustServerWS isam_oauth_unauth"
                     ])
 
 
