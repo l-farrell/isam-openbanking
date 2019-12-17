@@ -25,6 +25,13 @@ app.post('/', function (req, res) {
 	});
 });
 
+app.all('/eai', function (req, res) {
+  console.log("Got eai req: " + JSON.stringify(req.headers));
+
+  res.header('am-eai-ext-user-id', req.headers['cn']);
+  res.sendStatus(200)
+});
+
 app.listen(8081)
 
 

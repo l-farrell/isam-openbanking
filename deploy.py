@@ -38,8 +38,14 @@ JWT_SSA_PROPERTIES = "jwt-ssa-properties"
 JWT_ISSUE_CHAIN_TEMPLATE = "jwt-issue-chain-template"
 JWT_ISSUE_CHAIN_PROPERTIES = "jwt-issue-properties"
 
+FIDO_RP_ID = "fido-rp-id"
+FIDO_ORIGINS = "fido-origins"
+
+FIDO_POLICY = "fido-policy"
 
 SSA_INFOMAP = "ssa-infomap"
+
+CERT_MAPPING = "cert-mapping"
 
 OAUTH_CLIENT = "client"
 RESOURCE_SERVER = "resource-server"
@@ -115,6 +121,10 @@ if __name__ == '__main__':
         jwt_ssa_properties = json.loads(properties.get(JWT_SSA_PROPERTIES))
 
         ssa_policy = properties.get(SSA_INFOMAP)
+
+        fido_rp_id = properties.get(FIDO_RP_ID)
+        fido_origins = json.loads(properties.get(FIDO_ORIGINS))
+        fido_policy = properties.get(FIDO_POLICY)
 
         scim_config = json.loads(properties.get(SCIM_CONFIG))
         factory = pyisam.Factory(url, user, passwd)    
@@ -332,7 +342,44 @@ if __name__ == '__main__':
             print("validate-auth-jwt chain already exists")
 
 
+        print("Checking for FIDO2 RP...", end="")
 
+        rps = ok(aac.fido2.list_relying_parties)
+        found = False
+
+        fido_id = None
+        for rp in rps.json:
+            if rp.get("name", None) == "OpenBanking":
+                found = True
+                
+                fido_id = rp.get("id", None)
+                print("Found {}".format(fido_id))
+                break
+
+        if not found:
+            print("not found, creating...", end="")
+            response = ok(aac.fido2.create_relying_party, "OpenBanking", fido_rp_id, fido_origins)
+            fido_id = response.id_from_location
+            print("Created {}".format(fido_id))
+        
+        
+        response = ok(fed.access_policy.get_policies, filter="name equals OB_policy")
+
+        ob_policy_id = None
+
+        if len(response.json) == 0 :
+            #need to create the rule
+            response = ok(fed.access_policy.create_policy, file_name="./OB_policy.js", policy_name="OB_policy",category='OAUTH')
+
+            ob_policy_id = response.id_from_location
+            print("Created OB access policy")
+
+        else:
+            ob_policy_id = response.json[0]['id']
+
+            print ("Updating OB policy {0}....".format(ob_policy_id), end = "")
+            response = ok(fed.access_policy.update_policy, file_name="./OB_policy.js", policy_id=ob_policy_id)
+            print("Done!");
         #configure oauth initially
         response = ok(aac.api_protection.list_definitions, filter="name equals {}".format(oauth_definition['name']))
 
@@ -346,7 +393,7 @@ if __name__ == '__main__':
                     enable_multiple_refresh_tokens_for_fault_tolerance=d['enableMultipleRefreshTokensForFaultTolerance'],
                     grant_types=d['grantTypes'], oidc_enabled=oidc['enabled'],
                     iss=oidc['iss'], poc=oidc['poc'], lifetime=oidc['lifetime'], alg=oidc['alg'],
-                    db=oidc['db'], cert=oidc['cert'], enc_enabled=False, enc_alg=None, enc_enc=None, access_policy_id=None,
+                    db=oidc['db'], cert=oidc['cert'], enc_enabled=False, enc_alg=None, enc_enc=None, access_policy_id=int(ob_policy_id),
                     dynamic_register=True, dynamic_register_issue_secret=True)
             def_id = response.id_from_location
             print("...Created.")
@@ -394,6 +441,20 @@ if __name__ == '__main__':
         else:
             print ("RTE already configured")
 
+        response = ok(web.cert_mapping.list_cert_mappings)
+
+        #found = False
+        #for entry in response.json:
+        #    print(entry)
+        #    if entry.get("id") == "mapping":
+        #        found = True
+        #        break
+
+        #if not found:
+        #    print("Creating authn user mapping")
+        #    ok(web.cert_mapping.create_cert_mapping, "mapping", cert_mapping)
+
+
         #now configure webseal
 
         names = deflate_to_id(ok(web.reverse_proxy.list_instances).json)
@@ -417,6 +478,15 @@ if __name__ == '__main__':
             ok(web.reverse_proxy.update_configuration_stanza_entry, 'default', 'oauth', 'external-user-identity-attribute','username')
             ok(web.reverse_proxy.update_configuration_stanza_entry, 'default', 'oauth', 'user-identity-attribute','not-username')
 
+            print("Enabling MTLS for HoK")
+        
+            ok(web.reverse_proxy.update_configuration_stanza_entry, 'default', 'certificate', 'accept-client-certs', 'optional')
+            ok(web.reverse_proxy.add_configuration_stanza_entry, 'default', 'certificate', 'eai-uri', '/ssa/eai')
+            ok(web.reverse_proxy.add_configuration_stanza_entry, 'default', 'certificate', 'eai-data', 'SubjectCN:cn')
+
+            #ok(web.reverse_proxy.update_configuration_stanza_entry, 'default', 'user-map-authn', 'rules-file','mapping')
+            #ok(web.reverse_proxy.update_configuration_stanza_entry, 'default', 'user-map-authn', 'debug-level','9')
+
             #print("Setting URL filtering for SCIM")
             #ok(web.reverse_proxy.add_configuration_stanza_entry, 'default', 'filter-content-types', 'type','application/scim+json')
             #ok(web.reverse_proxy.add_configuration_stanza_entry, 'default', 'script-filtering', 'rewrite-absolute-with-absolute','yes')
@@ -431,6 +501,12 @@ if __name__ == '__main__':
                 browser=True, junction="/isam", auth_register=False)
 
         print("Successfully invoked OAuth Config.")
+
+        ok(web.reverse_proxy.configure_aac, "default", "/isam", True, True, runtime_hostname=runtime_srv, runtime_port=443,
+                runtime_username="easuser", runtime_password="passw0rd")
+
+        print("Successfully invoked AAC Config")
+
         print("Checking POC Configuration...", end="")
 
         profile_name = 'pac with authn macros'
@@ -543,16 +619,28 @@ if __name__ == '__main__':
         policy_id = None
 
         if len(policies) == 0:
-            print("Policy doesn't exist, creating")
+            print("SSA Policy doesn't exist, creating")
             response = ok(aac.authentication.create_policy, "ssa", ssa_policy, "urn:ibm:security:authentication:asf:ssa",
                     "Policy for consuming SSAs", None, None, None, None)
             policy_id = response.id_from_location
             print("{} created.".format(policy_id))
             need_deploy = True
         else:
-            print("Policy already exists")
+            print("SSA Policy already exists")
 
+        response = ok(aac.authentication.list_policies,filter="name equals fido2")
+        policies = json.loads(response.data)
+        policy_id = None
 
+        if len(policies) == 0:
+            print("FIDO2 Policy doesn't exist, creating")
+            response = ok(aac.authentication.create_policy, "fido2", fido_policy.format(fido_id), "urn:ibm:security:authentication:asf:fido2",
+                    "Policy for performing FIDO2 authentication", None, None, None, None)
+            policy_id = response.id_from_location
+            print("{} created.".format(policy_id))
+            need_deploy = True
+        else:
+            print("FIDO2 Policy already exists")
         #print("Configuring SSA infomap")
 
 
@@ -572,7 +660,6 @@ if __name__ == '__main__':
                     "server task default-webseald-localhost create -t tcp -p 8081 -h ssahopper -b ignore -f /ssa",
                     "acl attach /WebSEAL/localhost-default/ssa isam_oauth_unauth",
                     "acl attach /WebSEAL/localhost-default/isam/sps/apiauthsvc isam_oauth_nobody",
-                    "acl attach /WebSEAL/localhost-default/isam/sps/authsvc isam_oauth_nobody",
                     "acl attach /WebSEAL/localhost-default/isam/sps/authsvc/policy/password isam_oauth_unauth",
                     "acl attach /WebSEAL/localhost-default/isam/sps/authsvc/policy/fido2 isam_oauth_unauth",
                     "acl attach /WebSEAL/localhost-default/isam/sps/authsvc/policy/ssa isam_oauth_unauth",

@@ -1,5 +1,5 @@
-kubectl delete svc isamconfig isamwebseal openldap postgresql isamruntime
-kubectl delete deploy isamconfig isamwebseal isamruntime openldap postgresql
+kubectl delete svc isamconfig isamwebseal openldap postgresql isamruntime ssahopper
+kubectl delete deploy isamconfig isamwebseal isamruntime openldap postgresql ssahopper
 kubectl delete secret adminpwd configreader openldap-keys postgresql-keys
 
 

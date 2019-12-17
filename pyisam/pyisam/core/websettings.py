@@ -6,6 +6,7 @@ from .web.dscadmin import DSCAdmin
 from .web.policyadmin import PolicyAdmin
 from .web.reverseproxy import ReverseProxy, ReverseProxy9040, ReverseProxy9050
 from .web.runtimecomponent import RuntimeComponent
+from .web.cert_mapping import CertMapping
 
 
 class WebSettings9020(object):
@@ -16,7 +17,7 @@ class WebSettings9020(object):
         self.policy_administration = PolicyAdmin(base_url, username, password)
         self.reverse_proxy = ReverseProxy(base_url, username, password)
         self.runtime_component = RuntimeComponent(base_url, username, password)
-
+        self.cert_mapping = CertMapping(base_url, username, password)
 
 class WebSettings9021(WebSettings9020):
 
