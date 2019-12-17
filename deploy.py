@@ -35,6 +35,9 @@ SCIM_CONFIG = "scim-config"
 JWT_VALIDATE_CHAIN_TEMPLATE = "jwt-validate-chain-template"
 JWT_VALIDATE_CHAIN_PROPERTIES = "jwt-validate-properties"
 JWT_SSA_PROPERTIES = "jwt-ssa-properties"
+JWT_ISSUE_CHAIN_TEMPLATE = "jwt-issue-chain-template"
+JWT_ISSUE_CHAIN_PROPERTIES = "jwt-issue-properties"
+
 
 SSA_INFOMAP = "ssa-infomap"
 
@@ -106,6 +109,9 @@ if __name__ == '__main__':
         oauth_client = json.loads(properties.get(OAUTH_CLIENT))
         jwt_validate_chain_template = json.loads(properties.get(JWT_VALIDATE_CHAIN_TEMPLATE))
         jwt_validate_chain_properties = json.loads(properties.get(JWT_VALIDATE_CHAIN_PROPERTIES))
+        jwt_issue_chain_template = json.loads(properties.get(JWT_ISSUE_CHAIN_TEMPLATE))
+        jwt_issue_chain_properties = json.loads(properties.get(JWT_ISSUE_CHAIN_PROPERTIES))
+        
         jwt_ssa_properties = json.loads(properties.get(JWT_SSA_PROPERTIES))
 
         ssa_policy = properties.get(SSA_INFOMAP)
@@ -212,16 +218,53 @@ if __name__ == '__main__':
 
         print ("Done")
 
-        # Creating validate-jwt template
+        # Creating issue-jwt template
         response = fed.sts_templates.get_templates()
         templates = json.loads(response.data)
+        template = None
+        for possible_template in templates:
+            if possible_template['name'] == 'issue-jwt':
+                template = possible_template
+                break   
+
+        if template == None:
+            print("creating issue-jwt template...", end="")
+
+            response = ok(fed.sts_templates.create_template,"issue-jwt", "a simple stsuu -> jwt issue chain", jwt_issue_chain_template)
+            template = response.id_from_location
+            print("created!")
+            need_deploy = True
+        else:
+            print("issue-jwt template already exists")
+            template = template['id']
+
+        # Creating issue-jwt chain
+        response = fed.sts_chains.get_chains()
+        chains = json.loads(response.data)
+        chain = None
+        for possible_chain in chains:
+            if possible_chain['name'] == 'issue-jwt':
+                chain = possible_chain
+                break   
+
+        if chain == None:
+            print("creating issue-jwt chain...", end="")
+            response = ok(fed.sts_chains.create_chain,"issue-jwt", "a stsuu -> jwt issue chain for creating JWTs", template, 'http://schemas.xmlsoap.org/ws/2005/02/trust/Validate', 'urn:jwt:issue','urn:jwt:issue', jwt_issue_chain_properties)
+            chain = response.data
+            print("created!")
+            need_deploy = True
+        else:
+            print("issue-jwt chain already exists")
+
+
+
+        # Creating validate-jwt template
+
         template = None
         for possible_template in templates:
             if possible_template['name'] == 'validate-jwt':
                 template = possible_template
                 break   
-
-
 
         if template == None:
             print("creating validate-jwt template...", end="")
@@ -239,22 +282,21 @@ if __name__ == '__main__':
         chains = json.loads(response.data)
         chain = None
         for possible_chain in chains:
-            if possible_chain['name'] == 'validate-req-jwt':
+            if possible_chain['name'] == 'validate-ssa-jwt':
                 chain = possible_chain
                 break   
 
         if chain == None:
-            print("creating validate-req-jwt chain...", end="")
-            response = ok(fed.sts_chains.create_chain,"validate-req-jwt", "a simple jwt -> stsuu validate chain for validating request JWTs", template, 'http://schemas.xmlsoap.org/ws/2005/02/trust/Validate', 'urn:validate:ssa', 'urn:validate:ssa', jwt_ssa_properties)
+            print("creating validate-ssa-jwt chain...", end="")
+            response = ok(fed.sts_chains.create_chain,"validate-ssa-jwt", "a simple jwt -> stsuu validate chain for validating SSA JWTs", template, 'http://schemas.xmlsoap.org/ws/2005/02/trust/Validate', 'urn:validate:ssa', 'urn:validate:ssa', jwt_ssa_properties)
             chain = response.data
             print("created!")
             need_deploy = True
         else:
-            print("validate-req-jwt chain already exists")
+            print("validate-ssa-jwt chain already exists")
 
         # Creating validate-jwt chain
-        response = fed.sts_chains.get_chains()
-        chains = json.loads(response.data)
+
         chain = None
         for possible_chain in chains:
             if possible_chain['name'] == 'validate-req-jwt':
@@ -272,8 +314,7 @@ if __name__ == '__main__':
 
         # Creating validate-jwt chain
 
-        response = fed.sts_chains.get_chains()
-        chains = json.loads(response.data)
+
         chain = None
         for possible_chain in chains:
             if possible_chain['name'] == 'validate-auth-jwt':
@@ -283,12 +324,14 @@ if __name__ == '__main__':
         if chain == None:
             print("creating validate-auth-jwt chain...", end="")
 
-            response = ok(fed.sts_chains.create_chain,"validate-auth-jwt", "a simple jwt -> stsuu validate chain for validating request JWTs", template, 'http://schemas.xmlsoap.org/ws/2005/02/trust/Validate', 'https://localhost/sps/oauth/oauth20', 'REGEXP:(urn:ietf:params:oauth:client-assertion-type:jwt-bearer:.*)', jwt_validate_chain_properties)
+            response = ok(fed.sts_chains.create_chain,"validate-auth-jwt", "a simple jwt -> stsuu validate chain for validating Client auth JWTs", template, 'http://schemas.xmlsoap.org/ws/2005/02/trust/Validate', 'https://localhost/sps/oauth/oauth20', 'REGEXP:(urn:ietf:params:oauth:client-assertion-type:jwt-bearer:.*)', jwt_validate_chain_properties)
             chain = response.data
             print("created!")
             need_deploy = True
         else:
             print("validate-auth-jwt chain already exists")
+
+
 
         #configure oauth initially
         response = ok(aac.api_protection.list_definitions, filter="name equals {}".format(oauth_definition['name']))
@@ -333,10 +376,10 @@ if __name__ == '__main__':
 
         print ("Updating  pre rule....", end = "")
         ok(aac.mapping_rules.update_rule, pre_token_id, "./pre_token_generation.js")
-        print("Done!");
+        print("Done!")
         print ("Updating  post rule....", end = "")
         ok(aac.mapping_rules.update_rule, post_token_id, "./post_token_generation.js")
-        print("Done!");
+        print("Done!")
 
         #now configure the RTE
         response = ok(web.runtime_component.get_status)
@@ -452,10 +495,13 @@ if __name__ == '__main__':
             print("Creating infomap template dir ")
             response = ok(aac.template_files.create_directory,"C/authsvc/authenticator/", "ssa")
 
-        response = aac.template_files.get_directory("C/authsvc/authenticator/ssa/template.json")
+
+        response = ok(aac.advanced_config.update,12205, "@COOKIE_NAME@,@SERVER_NAME@,@JUNCTION@,@U2F_TOKENS@,@ACTION@,@AUTH_METHODS@,@AUTHENTICATORS@,@SIGNATURE_METHODS@,@TRANSIENT_METHODS@,@OAUTH_CLIENT_OPTIONS@,@OAUTH_CLIENT_DATA_MACRO@,@RESPONSE_TYPES@,@RESPONSE_MODES@,@GRANT_TYPES@,@SIGNING_ALG@,@ENCRYPTION_ALG@,@ENCRYPTION_ENC@,@WCT@,@WCTX@,@WRESULT@,@WA@,@TOKEN:RelayState@,@TOKEN:SamlMessage@,@FIDO_EXTENSIONS@,@FIDO_ALLOW_CREDENTIALS@,@FIDO2_RELYING_PARTIES@,@SUBJECT_TYPES_SUPPORTED@,@TOKEN_ENDPOINT_AUTH_METHODS_SUPPORTED@, @JSON@")
+
+        response = aac.template_files.get_file("C/authsvc/authenticator/ssa","template.html")
         if not response.success:
             print("Creating infomap template")
-            response = ok(aac.template_files.create_file,"C/authsvc/authenticator/ssa","template.json", "@JSON@")
+            response = ok(aac.template_files.create_file,"C/authsvc/authenticator/ssa","template.html", "@JSON@")
 
         print("Uploading SSA mapping rule...", end="")
         print("Does rule already exists? ", end="")
@@ -484,7 +530,7 @@ if __name__ == '__main__':
         if len(mechanisms) == 0:
             print("No, creating....", end = "")
             response = ok(aac.authentication.create_mechanism,"Used to parse SSAs",
-                    "ssa", 'urn:ibm:security:authentication:asf:mechanism:ssa', 13, properties=[{"value":"C/authsvc/authenticator/ssa/template.json","key":"infoMap.HTMLPage"},{"value":"SSA","key":"infoMap.JSRule"}])
+                    "ssa", 'urn:ibm:security:authentication:asf:mechanism:ssa', 13, properties=[{"value":"C/authsvc/authenticator/ssa/template.html","key":"infoMap.HTMLPage"},{"value":"SSA","key":"infoMap.JSRule"}])
             mech_id = response.id_from_location
             print("Created {}".format(mech_id))
             need_deploy = True
@@ -515,17 +561,20 @@ if __name__ == '__main__':
         print("Creating testuser, testadmin, adminGroup....")
         pdadmin = ok(web.policy_administration.execute, 'sec_master', 'passw0rd', 
                     [
-                    #"server task default-webseald-localhost create -t ssl -p 443 -h isam-runtime -B -U easuser -W passw0rd -c iv_user,iv_groups,iv_creds -f -x /scim",
-                    "server task default-webseald-localhost create -t tcp -p 8081 -h ssahopper -b ignore -f /ssa",
-                    "acl attach isam_oauth_unauth /WebSEAL/localhost-default/ssa",
-                    "acl attach isam_oauth_nobody /WebSEAL/localhost-default/isam/sps/authsvc",
-                    "acl attach isam_oauth_unauth /WebSEAL/localhost-default/isam/sps/authsvc/policy/ssa",
-                    "user create testuser cn=testuser,dc=iswga testuser testuser passw0rd",
+                    "user create testuser cn=testuser,secAuthority=Default testuser testuser passw0rd",
                     "user modify testuser account-valid yes",
-                    "user create testadmin cn=testadmin,dc=iswga testadmin testadmin passw0rd",
+                    "user create testadmin cn=testadmin,secAuthority=Default testadmin testadmin passw0rd",
                     "user modify testadmin account-valid yes",
-                    "group create adminGroup cn=adminGroup,dc=iswga adminGroup",
-                    "group modify adminGroup add testadmin"
+                    "group create adminGroup cn=adminGroup,secAuthority=Default adminGroup",
+                    "group modify adminGroup add testadmin",
+                    #"server task default-webseald-localhost create -t ssl -p 443 -h isamruntime -B -U easuser -W passw0rd -c iv_user,iv_groups,iv_creds -f -x /scim",
+                    "server task default-webseald-localhost create -t tcp -p 8081 -h ssahopper -b ignore -f /ssa",
+                    "acl attach /WebSEAL/localhost-default/ssa isam_oauth_unauth",
+                    "acl attach /WebSEAL/localhost-default/isam/sps/apiauthsvc isam_oauth_nobody",
+                    "acl attach /WebSEAL/localhost-default/isam/sps/authsvc isam_oauth_nobody",
+                    "acl attach /WebSEAL/localhost-default/isam/sps/authsvc/policy/password isam_oauth_unauth",
+                    "acl attach /WebSEAL/localhost-default/isam/sps/authsvc/policy/fido2 isam_oauth_unauth",
+                    "acl attach /WebSEAL/localhost-default/isam/sps/authsvc/policy/ssa isam_oauth_unauth"
                     ])
 
 

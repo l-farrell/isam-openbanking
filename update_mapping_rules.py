@@ -74,7 +74,7 @@ if __name__ == '__main__':
     #init mpyisam, load config
     with open('settings.yml', 'r') as stream:
 
-        properties = yaml.load(stream)
+        properties = yaml.load(stream, Loader=yaml.FullLoader)
         configure_loggers(properties.get(LOG_LEVEL, logging.INFO))
 
 
@@ -109,7 +109,7 @@ if __name__ == '__main__':
         #first, lets figure out the pre/post rules
 
 
-        response = ok(aac.mapping_rules.get_rule, filter="name startswith Register")
+        response = ok(aac.mapping_rules.get_rule, filter="name startswith OpenBanking")
 
         pre_token_id = list(filter(lambda x: "pre_token" in x['fileName'], response.json))[0]['id']
         post_token_id = list(filter(lambda x: "post_token" in x['fileName'], response.json))[0]['id']
@@ -120,6 +120,19 @@ if __name__ == '__main__':
         print ("Updating OB post rule....", end = "")
         ok(aac.mapping_rules.update_rule, post_token_id, "./post_token_generation.js")
         print("Done!");
+
+        print ("Updating ssa rule....", end = "")
+
+        response = ok(aac.mapping_rules.get_rule, filter="name startswith {}".format("SSA"))
+        rules = json.loads(response.data)
+        ssa_rule = None
+        if 0 == len(rules):
+            print("No...", end="")
+        else:
+            print("Yes...", end="")
+            ssa_rule=rules[0]['id']
+            ok(aac.mapping_rules.update_rule, ssa_rule, "./ssa.js")
+            print("Updated!")
 
 
 

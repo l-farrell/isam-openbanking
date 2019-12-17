@@ -3,3 +3,4 @@ db.pem
 secrets.yaml
 runtime.p12
 __pycache__
+.swp

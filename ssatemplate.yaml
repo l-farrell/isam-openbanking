@@ -1,0 +1,45 @@
+---
+# for external service access, see https://console.bluemix.net/docs/containers/cs_apps.html#cs_apps_public_nodeport
+apiVersion: v1
+kind: Service
+metadata:
+  name: ssahopper
+  labels:
+      app: postresql
+spec:
+  ports:
+    - port: 8081
+      name: ssahopper
+      protocol: TCP
+      nodePort: 31081
+  selector:
+    app: ssahopper
+  type: NodePort
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ssahopper 
+  labels:
+    app: ssahopper 
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ssahopper 
+  template: 
+    metadata:
+      labels:
+        app: ssahopper
+    spec:
+      containers:
+        - name: ssahopper
+          image: registry.local:5000/ssa:latest
+          imagePullPolicy: Always
+# This should be the default entry point
+          ports:
+            - containerPort: 8081
+          securityContext:
+---
+
