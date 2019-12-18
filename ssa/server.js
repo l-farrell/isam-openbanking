@@ -29,6 +29,8 @@ app.all('/eai', function (req, res) {
   console.log("Got eai req: " + JSON.stringify(req.headers));
 
   res.header('am-eai-ext-user-id', req.headers['cn']);
+  res.header('am-eai-xattrs', "fingerprint")
+  res.header('fingerprint', req.headers['fingerprint']);
   res.sendStatus(200)
 });
 

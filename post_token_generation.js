@@ -206,6 +206,49 @@ if (request_type == "authorization"){
   }
 }
 
+if(request_type == "access_token") {
+  var fingerprint = stsuu.getAttributeContainer().getAttributeValueByNameAndType("fingerprint", "urn:ibm:names:ITFIM:5.1:accessmanager");
+  if(fingerprint == null) {
+    IDMappingExtUtils.traceString("No fingerprint presented");
+  } else {
+    IDMappingExtUtils.traceString("Saving MTLS fingerprint: " + fingerprint);
+    OAuthMappingExtUtils.associate(state_id,"mtls_fingerprint", fingerprint)
+  }
+
+}
+
+if(request_type == "introspect") {
+  IDMappingExtUtils.traceString("fetching MTLS fingerprint");
+
+  var fingerprint = OAuthMappingExtUtils.getAssociation(state_id,"mtls_fingerprint");
+
+  if(fingerprint != null) {
+    IDMappingExtUtils.traceString("MTLS fingerprint: [" + fingerprint + "].");
+		stsuu.addContextAttribute(new Attribute("mtls_fingerprint", "urn:ibm:names:ITFIM:oauth:response:attribute", fingerprint));
+  }
+
+  var acr = OAuthMappingExtUtils.getAssociation(state_id,"acr");
+
+  if(acr != null) {
+    IDMappingExtUtils.traceString("acr: [" + acr + "].");
+		stsuu.addContextAttribute(new Attribute("acr", "urn:ibm:names:ITFIM:oauth:response:attribute", acr));
+  }
+
+}
+  
+
+if(request_type == "authorization") {
+  var acr = stsuu.getAttributeContainer().getAttributeValueByNameAndType("authenticationTypes", "urn:ibm:names:ITFIM:5.1:accessmanager");
+  if(acr == null) {
+    IDMappingExtUtils.traceString("No acr presented");
+  } else {
+    IDMappingExtUtils.traceString("Saving acr: " + acr);
+    OAuthMappingExtUtils.associate(state_id,"acr", acr)
+  }
+
+}
+
+
 //if(request_type == "userinfo") {
 //  var sub = stsuu.getContextAttributes().getAttributeValueByName("sub");
 //  stsuu.addContextAttribute(new com.tivoli.am.fim.trustserver.sts.uuser.Attribute("emailAddress" ,"urn:ibm:names:ITFIM:oauth:response:attribute", sub+"@myisam.ibm.com"));

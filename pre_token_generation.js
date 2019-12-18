@@ -83,3 +83,25 @@ if (request_type == "access_token" && grant_type == "authorization_code") {
     }
   }
 }
+
+// Populate ACR
+if (request_type == "access_token") {
+ populate_id_token = true;
+ var code = stsuu.getContextAttributes().getAttributeValueByNameAndType("code","urn:ibm:names:ITFIM:oauth:body:param");
+ if (code != null) {
+  var token = OAuthMappingExtUtils.getToken(code);
+  if (token != null) {
+   state_id = token.getStateId();
+   var acr = OAuthMappingExtUtils.getAssociation(state_id,"acr");
+   if(acr != null) {
+    var attr = new com.tivoli.am.fim.trustserver.sts.uuser.Attribute("acr", "urn:ibm:jwt:claim", acr);
+    stsuu.addAttribute(attr);
+   }
+  }
+ }
+} else if (request_type == "authorization") {
+  var vals = stsuu.getAttributeContainer().getAttributeValuesByNameAndType("authenticationTypes", "urn:ibm:names:ITFIM:5.1:accessmanager");
+  var attr = new com.tivoli.am.fim.trustserver.sts.uuser.Attribute("acr", "urn:ibm:jwt:claim", vals);
+  stsuu.addAttribute(attr);
+}
+

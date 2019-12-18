@@ -26,6 +26,8 @@ WEB_CODE="web-code"
 AAC_CODE="aac-code"
 FED_CODE="fed-code"
 
+CA_CERT = "ca-cert"
+
 DB_CERT = "db-cert"
 RT_CERT = "rt-cert"
 RT_CERT_PASSWD = "rt-cert-passwd"
@@ -100,6 +102,8 @@ if __name__ == '__main__':
         aac_code = properties.get(AAC_CODE)
         fed_code = properties.get(FED_CODE)
         db_cert = properties.get(DB_CERT)
+        ca_cert = properties.get(CA_CERT)
+
         rt_cert = properties.get(RT_CERT)
         rt_cert_lbl = properties.get(RT_CERT_LBL)
         rt_cert_passwd = properties.get(RT_CERT_PASSWD)
@@ -178,6 +182,9 @@ if __name__ == '__main__':
             if response.success != True:
                 ok(ss.ssl_certificates.import_personal, "rt_profile_keys", "runtime.p12", "passw0rd")
                 print("Added runtime.p12 to rt_profile_keys.")
+
+
+        
 
         if need_deploy:
             ok(ss.configuration.deploy_pending_changes)
@@ -470,6 +477,8 @@ if __name__ == '__main__':
                 ok(ss.ssl_certificates.import_personal, "pdsrv", rt_cert, rt_cert_passwd)
                 print("Added runtime.p12 to pdsrv.")
 
+            
+
             ok(web.reverse_proxy.update_configuration_stanza_entry, 'default', 'ssl', 'webseal-cert-keyfile-label', rt_cert_lbl)
 
             print("Created instance 'default.")
@@ -483,6 +492,8 @@ if __name__ == '__main__':
             ok(web.reverse_proxy.update_configuration_stanza_entry, 'default', 'certificate', 'accept-client-certs', 'optional')
             ok(web.reverse_proxy.add_configuration_stanza_entry, 'default', 'certificate', 'eai-uri', '/ssa/eai')
             ok(web.reverse_proxy.add_configuration_stanza_entry, 'default', 'certificate', 'eai-data', 'SubjectCN:cn')
+            ok(web.reverse_proxy.add_configuration_stanza_entry, 'default', 'certificate', 'eai-data', 'Fingerprint:fingerprint')
+            
 
             #ok(web.reverse_proxy.update_configuration_stanza_entry, 'default', 'user-map-authn', 'rules-file','mapping')
             #ok(web.reverse_proxy.update_configuration_stanza_entry, 'default', 'user-map-authn', 'debug-level','9')
@@ -495,6 +506,13 @@ if __name__ == '__main__':
 
         else:
             print ("Instance 'default' already exists.") 
+
+        response = ss.ssl_certificates.get_signer("pdsrv", "mtlsCA")
+        if response.success != True:
+            ok(ss.ssl_certificates.import_signer, "pdsrv", ca_cert, label="mtlsCA")
+            need_deploy = True
+            print("loaded MTLS CA.")
+
 
         ok(web.reverse_proxy.configure_api_protection, "default", hostname=runtime_srv, port=443,
                 username="easuser", password="passw0rd", reuse_certs=True,reuse_acls=False, api=True,
@@ -606,7 +624,7 @@ if __name__ == '__main__':
         if len(mechanisms) == 0:
             print("No, creating....", end = "")
             response = ok(aac.authentication.create_mechanism,"Used to parse SSAs",
-                    "ssa", 'urn:ibm:security:authentication:asf:mechanism:ssa', 13, properties=[{"value":"C/authsvc/authenticator/ssa/template.html","key":"infoMap.HTMLPage"},{"value":"SSA","key":"infoMap.JSRule"}])
+                    "ssa", 'urn:ibm:security:authentication:asf:mechanism:ssa', 13, properties=[{"value":"/authsvc/authenticator/ssa/template.html","key":"infoMap.HTMLPage"},{"value":"SSA","key":"infoMap.JSRule"}])
             mech_id = response.id_from_location
             print("Created {}".format(mech_id))
             need_deploy = True

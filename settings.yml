@@ -11,6 +11,8 @@ web-code: 2889-D57C-0FEB-223A-D801-6177-68A9-069A
 aac-code: 4444-F462-E174-AA1E-E87B-9F06-E6AC-DA0B
 fed-code: 9A08-84CC-599A-5CC2-C4D9-ACD3-AD70-B4D6
 
+
+ca-cert: "./myCA.pem"
 db-cert: "./db.pem"
 rt-cert: "./runtime.p12"
 rt-cert-passwd: "passw0rd"
@@ -18,7 +20,7 @@ rt-cert-label: "runtime"
 
 junction-root-page: "./index.html"
 
-definition:  '{"name": "OpenBanking", "tcmBehavior": "NEVER_PROMPT", "enableMultipleRefreshTokensForFaultTolerance": true, "description": "An API protection definition configured for OpenBanking", "oidc": { "poc": "https://173.193.85.173:30443/isam", "iss": "https://isam-ob-k8s.com", "lifetime": 20, "cert": "runtime", "enc": { "enc": null, "alg": null, "enabled": false }, "alg": "RS256", "enabled": true, "db": "rt_profile_keys", "dynamicClients":true, "issueSecret":true }, "refreshTokenLength": 40, "grantTypes": [ "RESOURCE_OWNER_PASSWORD_CREDENTIALS", "JWT_BEARER", "IMPLICIT_GRANT", "CLIENT_CREDENTIALS", "AUTHORIZATION_CODE" ],  "issueRefreshToken":true }'
+definition:  '{"name": "OpenBanking", "tcmBehavior": "ALWAYS_PROMPT", "enableMultipleRefreshTokensForFaultTolerance": true, "description": "An API protection definition configured for OpenBanking", "oidc": { "poc": "https://isam.local:20443/isam", "iss": "https://isam.local:20443", "lifetime": 20, "cert": "runtime", "enc": { "enc": null, "alg": null, "enabled": false }, "alg": "RS256", "enabled": true, "db": "rt_profile_keys", "dynamicClients":true, "issueSecret":true }, "refreshTokenLength": 40, "grantTypes": [ "RESOURCE_OWNER_PASSWORD_CREDENTIALS", "JWT_BEARER", "IMPLICIT_GRANT", "CLIENT_CREDENTIALS", "AUTHORIZATION_CODE" ],  "issueRefreshToken":true }'
 client: '{ "redirectUri": ["https://static.com", "https://staticclient.com/auth", "https://staticclient.com/auth", "https://localhost:19880/auth"] , "otherInfo": null, "clientId": "static_client", "companyName": "LMFwallet", "contactPerson": "lmf", "jwksUri": null, "contactType": "TECHNICAL", "encryptionCert": null, "companyUrl": "https://lmfwallet.com", "encryptionDb": null, "phone": null, "name": "A oauth client", "requirePkce": false, "definition": "1", "clientSecret": "hunter2", "id": "1", "email": "lfarrell@au1.ibm.com" }' 
 
 jwt-issue-chain-template: '[{"id":"default-stsuu", "mode":"validate", "prefix": "a"},  {"id":"default-jwt", "mode":"issue", "prefix": "b"}]'
